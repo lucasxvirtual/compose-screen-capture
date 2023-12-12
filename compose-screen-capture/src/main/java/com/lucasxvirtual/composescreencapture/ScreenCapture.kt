@@ -8,7 +8,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -16,21 +15,9 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.graphics.applyCanvas
 import androidx.core.view.doOnLayout
 
-sealed class ScreenShotResult {
-    data class Success(val bitmap: Bitmap): ScreenShotResult()
-    data class Error(val throwable: Throwable): ScreenShotResult()
-}
-
-data class ScreenCaptureOptions(
-    val width: Int? = null,
-    val height: Int? = null
-)
-
 @Composable
 fun ScreenCapture(
-    takeScreenCapture: State<Boolean>,
-    options: ScreenCaptureOptions? = null,
-    onResult: (ScreenShotResult) -> Unit,
+    screenCaptureState: ScreenCaptureState,
     content: @Composable () -> Unit
 ) {
     val viewLocal = LocalView.current
@@ -38,18 +25,17 @@ fun ScreenCapture(
     val activity = try {
         context.findActivity()
     } catch (t: Throwable) {
-        onResult(ScreenShotResult.Error(t))
+        screenCaptureState.updateImageState(ScreenShotResult.Error(t))
         return
     }
-    LaunchedEffect(takeScreenCapture) {
-        if (!takeScreenCapture.value)
+    LaunchedEffect(screenCaptureState.capture) {
+        if (!screenCaptureState.capture)
             return@LaunchedEffect
         takeScreenShot(
             activity = activity,
             viewLocal = viewLocal,
             content = content,
-            onResult = onResult,
-            options = options
+            screenCaptureState = screenCaptureState
         )
     }
 }
@@ -67,8 +53,7 @@ private fun takeScreenShot(
     activity: Activity,
     viewLocal: View,
     content: @Composable () -> Unit,
-    onResult: (ScreenShotResult) -> Unit,
-    options: ScreenCaptureOptions? = null
+    screenCaptureState: ScreenCaptureState
 ) {
     val view = ComposeView(activity).apply {
         layoutParams = ViewGroup.LayoutParams(
@@ -83,8 +68,8 @@ private fun takeScreenShot(
     // Use this frame layout so that we don't block touch events from this invisible view
     val frame = NoTouchFrameLayout(activity).apply {
         layoutParams = ViewGroup.LayoutParams(
-            options?.width ?: ViewGroup.LayoutParams.MATCH_PARENT,
-            options?.height ?: viewLocal.measuredHeight
+            screenCaptureState.options?.width ?: ViewGroup.LayoutParams.MATCH_PARENT,
+            screenCaptureState.options?.height ?: viewLocal.measuredHeight
         )
         alpha = 0F
         addView(view)
@@ -102,12 +87,12 @@ private fun takeScreenShot(
             ).applyCanvas {
                 it.draw(this)
             }
-            onResult(ScreenShotResult.Success(bitmap))
+            screenCaptureState.updateImageState(ScreenShotResult.Success(bitmap))
             (it as ComposeView).cleanUp(frame)
         }
     } catch (t: Throwable) {
         view.cleanUp(frame)
-        onResult(ScreenShotResult.Error(t))
+        screenCaptureState.updateImageState(ScreenShotResult.Error(t))
     }
 }
 

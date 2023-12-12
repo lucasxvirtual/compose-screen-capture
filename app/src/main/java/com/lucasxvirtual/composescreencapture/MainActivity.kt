@@ -1,6 +1,5 @@
 package com.lucasxvirtual.composescreencapture
 
-import android.graphics.Bitmap
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -44,39 +43,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             ComposeScreenCaptureTheme {
-                // A surface container using the 'background' color from the theme
-                val takeScreenCapture = remember {
-                    mutableStateOf(false)
-                }
-                var error by remember {
-                    mutableStateOf("")
-                }
-                var bitmap by remember {
-                    mutableStateOf<Bitmap?>(null)
-                }
                 val options = listOf("Simple screen", "List screen")
                 var expanded by remember { mutableStateOf(false) }
                 var selectedOptionText by remember { mutableStateOf(options[0]) }
-                if (takeScreenCapture.value) {
-                    ScreenCapture(
-                        onResult = {
-                            takeScreenCapture.value = false
-                            when (it) {
-                                is ScreenShotResult.Success -> {
-                                    bitmap = it.bitmap
-                                }
+                val localView = LocalView.current
 
-                                is ScreenShotResult.Error -> error = it.throwable.message.orEmpty()
-                            }
-                        },
-                        takeScreenCapture = takeScreenCapture,
-                        options = ScreenCaptureOptions(height = LocalView.current.measuredHeight * 4)
-                    ) {
-                        if (selectedOptionText == "Simple screen")
-                            SimpleScreen()
-                        else
-                            ListScreen()
-                    }
+                val state = rememberScreenCaptureState()
+                ScreenCapture(screenCaptureState = state) {
+                    if (selectedOptionText == "Simple screen")
+                        SimpleScreen()
+                    else
+                        ListScreen()
                 }
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -131,7 +108,9 @@ class MainActivity : ComponentActivity() {
                         }
                         Button(
                             onClick = {
-                                takeScreenCapture.value = true
+                                state.capture(
+                                    options = ScreenCaptureOptions(height = localView.measuredHeight * 4)
+                                )
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -140,7 +119,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             Text(text = "Take screen capture")
                         }
-                        bitmap?.let {
+                        state.bitmap?.let {
                             Text(text = "Screen Capture: ", modifier = Modifier.align(Alignment.Start))
                             Image(
                                 bitmap = it.asImageBitmap(),
@@ -151,8 +130,10 @@ class MainActivity : ComponentActivity() {
                                     .border(1.dp, color = Color.Black)
                             )
                         }
-                        if (error.isNotEmpty()) {
-                            Text(text = error)
+                        (state.imageState as? ScreenShotResult.Error)?.let {
+                            Text(
+                                text = it.throwable.message.orEmpty()
+                            )
                         }
                     }
                 }
