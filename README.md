@@ -1,6 +1,8 @@
 # compose-screen-capture
 Compose Screen Capture is an Android library designed to simplify the process of capturing screenshots of layouts created with Jetpack Compose.
 
+<img src="./running-app.gif" height="400"/>
+
 ## Key Features:
 
 *   **Seamless Integration with Jetpack Compose:**
